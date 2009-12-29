@@ -1,0 +1,19 @@
+
+JVM-GC-STATS
+
+
+SUMMARY
+A Ruby script to parse the output from the Java Virtual Machine
+(JVM) garbage collection trace output, push the data into Ganglia
+and alert on anomolies. The data and graphs produced are intended
+to support operational monitoring of production processes and for
+to also inform GC tuning decisions.
+
+The JVM is assumed to be Java6 and invoked with the following flags:
+-XX:+UseConcMarkSweepGC -verbosegc -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps
+
+Currently this script is a rough prototype written by a Ruby neophyte
+in a rush to get data. Be gentle.
+
+LICENSE
+Apache 2.0 License. See included license file.
