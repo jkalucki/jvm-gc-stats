@@ -41,7 +41,7 @@ def tail(file)
   end
 end
 
-USERREAL         = '.*?user=(\d+.\d+).*?real=(\d+.\d+)'
+USER_REAL         = '.*?user=(\d+.\d+).*?real=(\d+.\d+)'
 MINOR            = Regexp.new('ParNew: (\d+)K->(\d+)' + USER_REAL)
 FULL             = Regexp.new('Full GC \[CMS: (\d+)K->(\d+)' + USER_REAL)
 PROMOTION_FAILED = Regexp.new('promotion failed' + USER_REAL)
