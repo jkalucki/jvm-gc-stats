@@ -1,37 +1,33 @@
 #!/usr/bin/ruby
 # jvm-gc-stats: gather stats from jvm garbage collection trace and publish ganglia graphs
 
-$debug = true
-$report = false
-$tailOnly = false
-$tailSleepSec = 1
-$tailBlockSize = 2048
+DEBUG           = true
+REPORT          = false
+TAIL_ONLY       = false
+TAIL_SLEEP_SEC  = 1
+TAIL_BLOCK_SIZE = 2048
 
 def tail(file)
   f = File.new(file, "r")
-  f.seek(0, IO::SEEK_END) if $tailOnly
+  f.seek(0, IO::SEEK_END) if TAIL_ONLY
 
   lines = ""
   loop do
     begin
       # Limit reads to prevent loading entire file into memory if not seeking to end
-      begin
-        part = f.read_nonblock($tailBlockSize)
-      rescue
-        part = nil
-      end
+      part = f.read_nonblock(TAIL_BLOCK_SIZE) rescue nil
 
-      if part == nil then
+      if part == nil
         # End of file reached, wait for more data
-        sleep $tailSleepSec
+        sleep TAIL_SLEEP_SEC
       else
         lines += part
       end
-    end until lines["\n"]
+    end until lines.include?("\n")
 
     # If there isn't a null trailing field, last string isn't newline terminated
-    split = lines.split("\n", $tailBlockSize)
-    if split[-1] == "" then
+    split = lines.split("\n", TAIL_BLOCK_SIZE)
+    if split[-1] == ""
       # Remove null trailing field
       split.pop
       lines = ""
@@ -45,15 +41,15 @@ def tail(file)
   end
 end
 
-$userReal = '.*?user=(\d+.\d+).*?real=(\d+.\d+)'
-$minor = Regexp.new('ParNew: (\d+)K->(\d+)' + $userReal)
-$full = Regexp.new('Full GC \[CMS: (\d+)K->(\d+)' + $userReal)
-$promotionFailed = Regexp.new('promotion failed' + $userReal)
-$scavange = Regexp.new('Trying a full collection because scavenge failed')
-$cmsStart = Regexp.new('\[CMS-concurrent.*start\]')
-$cmsConcurrent = Regexp.new('CMS-concurrent' + $userReal)
-$cmsBlock = Regexp.new('CMS-(initial-|re)mark' + $userReal)
-$startup = Regexp.new('^Heap$|^ par new generation|^  eden space|^  from space|^  to   space|^ concurrent mark-sweep generation|^ concurrent-mark-sweep perm')
+USERREAL         = '.*?user=(\d+.\d+).*?real=(\d+.\d+)'
+MINOR            = Regexp.new('ParNew: (\d+)K->(\d+)' + USER_REAL)
+FULL             = Regexp.new('Full GC \[CMS: (\d+)K->(\d+)' + USER_REAL)
+PROMOTION_FAILED = Regexp.new('promotion failed' + USER_REAL)
+SCAVANGE         = Regexp.new('Trying a full collection because scavenge failed')
+CMS_START        = Regexp.new('\[CMS-concurrent.*start\]')
+CMS_CONCURRENT   = Regexp.new('CMS-concurrent' + USER_REAL)
+CMS_BLOCK        = Regexp.new('CMS-(initial-|re)mark' + USER_REAL)
+STARTUP          = Regexp.new('^Heap$|^ par new generation|^  eden space|^  from space|^  to   space|^ concurrent mark-sweep generation|^ concurrent-mark-sweep perm')
 
 def denominator(string)
   rv = string.to_f
@@ -63,16 +59,16 @@ def denominator(string)
 end
 
 def minorAndFull(match, collection, str)
-  fromK = match[1].to_i
-  toK = match[2].to_i
-  deltaK = fromK - toK
-  ratio = toK.to_f / fromK.to_f
-  userSec = denominator(match[3])
-  realSec = denominator(match[4])
+  fromK       = match[1].to_i
+  toK         = match[2].to_i
+  deltaK      = fromK - toK
+  ratio       = toK.to_f / fromK.to_f
+  userSec     = denominator(match[3])
+  realSec     = denominator(match[4])
   kPerRealSec = deltaK / realSec
   kPerUserSec = deltaK / userSec
 
-  if $debug then
+  if DEBUG
     printf("%-15s user %5.2f real %5.2f ratio %1.3f kPerUserSec %10d kPerRealSec %10d \n",
            collection, userSec, realSec, ratio, kPerUserSec, kPerRealSec)
   end
@@ -85,47 +81,47 @@ end
 
 def ingest(str)
   case str
-  when $minor
+  when MINOR
     minorAndFull($~, "minor", str)
-  when $full
+  when FULL
     minorAndFull($~, "full", str)
-  when $promotionFailed
+  when PROMOTION_FAILED
     userSec = $~[1].to_f
     realSec = $~[2].to_f
-    printf "%-15s user %5.2f real %5.2f\n", "promoFail", userSec, realSec if $debug
+    printf "%-15s user %5.2f real %5.2f\n", "promoFail", userSec, realSec if DEBUG
     # Reporting userSec for promotion failures is redundant
     report("promoFail.realSec", realSec)
-  when $cmsConcurrent
+  when CMS_CONCURRENT
     userSec = $~[1].to_f
     realSec = $~[2].to_f
-    printf "%-15s user %5.2f real %5.2f\n", "major concur", userSec, realSec if $debug
+    printf "%-15s user %5.2f real %5.2f\n", "major concur", userSec, realSec if DEBUG
     report("major.concur.userSec", userSec)
     report("major.concur.realSec", realSec)
-  when $cmsBlock
+  when CMS_BLOCK
     userSec = $~[2].to_f
     realSec = $~[3].to_f
-    printf "%-15s user %5.2f real %5.2f\n", "major block", userSec, realSec if $debug
+    printf "%-15s user %5.2f real %5.2f\n", "major block", userSec, realSec if DEBUG
     report("major.block.userSec", userSec)
     report("major.block.realSec", realSec)
-  when $cmsStart
-    puts "ignore cms start #{str}" if $debug
-  when $startup
-    puts "ignore startup #{str}" if $debug
-  when $scavange
-    puts "ignore scavange #{str}" if $debug
+  when CMS_START
+    puts "ignore cms start #{str}" if DEBUG
+  when STARTUP
+    puts "ignore startup #{str}" if DEBUG
+  when SCAVANGE
+    puts "ignore scavange #{str}" if DEBUG
   else
     puts "UNMATCHED #{str}"
   end
 end
 
 def report(key, value)
-  if $report then
+  if REPORT
     exec = "gmetric -tfloat -njvm.gc.#{key} -v#{value}"
     system(exec)
   end
 end
 
-if (ARGV[0]) then
+if (ARGV[0])
   filename = ARGV[0]
 else
   filename = "stdout"
