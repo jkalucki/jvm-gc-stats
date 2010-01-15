@@ -6,6 +6,8 @@ REPORT          = false
 TAIL_ONLY       = false
 TAIL_SLEEP_SEC  = 1
 TAIL_BLOCK_SIZE = 2048
+ALL_MEASUREMENTS = %w[promoFail.realSec major.concur.userSec major.concur.realSec major.block.userSec] + 
+                   %w[%s.survivalRatio %s.kbytesPerSec %s.userSec %s.realSec].collect{|m| %w[minor full].collect{|s| m % s}}.flatten
 
 def tail(file)
   f = File.new(file, "r")
@@ -19,7 +21,9 @@ def tail(file)
 
       if part == nil
         # End of file reached, wait for more data
+        ALL_MEASUREMENTS.each{|m| report(m, 0)}
         sleep TAIL_SLEEP_SEC
+        #TODO stat file to see if inode changed
       else
         lines += part
       end
