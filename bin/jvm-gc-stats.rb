@@ -9,10 +9,14 @@ TAIL_BLOCK_SIZE = 2048
 ALL_MEASUREMENTS = %w[promoFail.realSec major.concur.userSec major.concur.realSec major.block.userSec] + 
                    %w[%s.survivalRatio %s.kbytesPerSec %s.userSec %s.realSec].collect{|m| %w[minor full].collect{|s| m % s}}.flatten
 
-def tail(file)
+def open_file(file)
   f = File.new(file, "r")
-  f.seek(0, IO::SEEK_END) if TAIL_ONLY
+end
 
+def tail(file)
+  f = open_file(file)
+  f.seek(0, IO::SEEK_END) if TAIL_ONLY
+  current_inode = f.stat.ino
   lines = ""
   loop do
     begin
@@ -23,7 +27,8 @@ def tail(file)
         # End of file reached, wait for more data
         ALL_MEASUREMENTS.each{|m| report(m, 0)}
         sleep TAIL_SLEEP_SEC
-        #TODO stat file to see if inode changed
+        f = open(file) unless File.stat(file).ino == current_inode
+        current_inode = f.stat.ino
       else
         lines += part
       end
