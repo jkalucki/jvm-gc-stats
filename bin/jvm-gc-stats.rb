@@ -6,7 +6,7 @@ REPORT          = false
 TAIL_ONLY       = false
 TAIL_SLEEP_SEC  = 1
 TAIL_BLOCK_SIZE = 2048
-ALL_MEASUREMENTS = %w[promoFail.realSec major.concur.userSec major.concur.realSec major.block.userSec] + 
+ALL_MEASUREMENTS = %w[promoFail.realSec major.concur.userSec major.concur.realSec major.block.userSec] +
                    %w[%s.survivalRatio %s.kbytesPerSec %s.userSec %s.realSec].collect{|m| %w[minor full].collect{|s| m % s}}.flatten
 
 def open_file(file)
